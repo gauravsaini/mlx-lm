@@ -684,14 +684,15 @@ def stream_generate(
     """
     if use_mlx_nn_optimized:
         bridge = _optimized_generate_bridge()
-        yield from bridge.optimized_stream_generate_bridge(
-            model=model,
-            tokenizer=tokenizer,
-            prompt=prompt,
-            max_tokens=max_tokens,
-            draft_model=draft_model,
-            **kwargs,
-        )
+        with wired_limit(model, [generation_stream]):
+            yield from bridge.optimized_stream_generate_bridge(
+                model=model,
+                tokenizer=tokenizer,
+                prompt=prompt,
+                max_tokens=max_tokens,
+                draft_model=draft_model,
+                **kwargs,
+            )
         return
 
     if not isinstance(tokenizer, TokenizerWrapper):
@@ -787,13 +788,14 @@ def generate(
     """
     if use_mlx_nn_optimized:
         bridge = _optimized_generate_bridge()
-        return bridge.optimized_generate_bridge(
-            model=model,
-            tokenizer=tokenizer,
-            prompt=prompt,
-            verbose=verbose,
-            **kwargs,
-        )
+        with wired_limit(model, [generation_stream]):
+            return bridge.optimized_generate_bridge(
+                model=model,
+                tokenizer=tokenizer,
+                prompt=prompt,
+                verbose=verbose,
+                **kwargs,
+            )
 
     if verbose:
         print("=" * 10)
