@@ -710,6 +710,7 @@ def stream_generate(
     detokenizer = tokenizer.detokenizer
 
     kwargs["max_tokens"] = max_tokens
+    setattr(model, "_mlx_lm_stock_generation_used", True)
 
     if draft_model is None:
         kwargs.pop("num_draft_tokens", None)

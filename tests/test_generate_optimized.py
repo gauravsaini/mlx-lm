@@ -228,6 +228,74 @@ class TestGenerateOptimized(unittest.TestCase):
         self.assertEqual(len([r.text for r in responses if r.text]), 2)
         self.assertEqual(responses[-1].finish_reason, "length")
 
+    def test_opt_in_uses_cached_clone_after_stock_use(self):
+        if not self._supports_optimized_kwarg():
+            self.skipTest("optimized mlx_lm generation path is not implemented yet")
+
+        model = DummyModel()
+        tokenizer = DummyTokenizer()
+
+        list(
+            stream_generate(
+                model,
+                tokenizer,
+                [1, 2],
+                max_tokens=1,
+                sampler=lambda logprobs: mx.argmax(logprobs, axis=-1),
+            )
+        )
+
+        seen_models = []
+
+        def fake_optimized_stream_generate(model_arg, tokenizer_arg, prompt_arg, **kwargs):
+            del tokenizer_arg, prompt_arg, kwargs
+            seen_models.append(model_arg)
+            yield type(
+                "Resp",
+                (),
+                {
+                    "text": "x",
+                    "token": 1,
+                    "logprobs": None,
+                    "from_draft": False,
+                    "prompt_tokens": 2,
+                    "prompt_tps": 1.0,
+                    "generation_tokens": 1,
+                    "generation_tps": 1.0,
+                    "peak_memory": 0.0,
+                    "finish_reason": "length",
+                },
+            )()
+
+        with mock.patch("mlx.nn.optimized_stream_generate", fake_optimized_stream_generate):
+            responses = list(
+                stream_generate(
+                    model,
+                    tokenizer,
+                    [1, 2],
+                    max_tokens=1,
+                    sampler=lambda logprobs: mx.argmax(logprobs, axis=-1),
+                    use_mlx_nn_optimized=True,
+                )
+            )
+            responses_again = list(
+                stream_generate(
+                    model,
+                    tokenizer,
+                    [1, 2],
+                    max_tokens=1,
+                    sampler=lambda logprobs: mx.argmax(logprobs, axis=-1),
+                    use_mlx_nn_optimized=True,
+                )
+            )
+
+        self.assertEqual(len(seen_models), 2)
+        self.assertIsNot(seen_models[0], model)
+        self.assertIs(seen_models[0], seen_models[1])
+        self.assertIs(getattr(model, "_mlx_lm_optimized_model_clone"), seen_models[0])
+        self.assertEqual([r.text for r in responses], ["x"])
+        self.assertEqual([r.text for r in responses_again], ["x"])
+
 
 if __name__ == "__main__":
     unittest.main()

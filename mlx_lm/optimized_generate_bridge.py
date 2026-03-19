@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 from typing import Any, Dict, Generator, Optional
 
 import mlx.core as mx
@@ -92,6 +93,17 @@ def _sync_generation_stream() -> None:
     mx.synchronize(generation_stream)
 
 
+def _bridge_model(model: Any) -> Any:
+    if not getattr(model, "_mlx_lm_stock_generation_used", False):
+        return model
+
+    optimized_model = getattr(model, "_mlx_lm_optimized_model_clone", None)
+    if optimized_model is None:
+        optimized_model = copy.deepcopy(model)
+        setattr(model, "_mlx_lm_optimized_model_clone", optimized_model)
+    return optimized_model
+
+
 def optimized_stream_generate_bridge(
     model: Any,
     tokenizer: Any,
@@ -110,6 +122,7 @@ def optimized_stream_generate_bridge(
 
     tokenizer = _normalize_tokenizer(tokenizer)
     _sync_generation_stream()
+    model = _bridge_model(model)
     _reject_unsupported_kwargs(kwargs)
     prompt_cache = kwargs.pop("prompt_cache", None)
     prefill_step_size = kwargs.pop("prefill_step_size", 2048)
@@ -156,6 +169,7 @@ def optimized_generate_bridge(
 
     tokenizer = _normalize_tokenizer(tokenizer)
     _sync_generation_stream()
+    model = _bridge_model(model)
     _reject_unsupported_kwargs(
         kwargs, allow_verbose=True, extra_supported={"max_tokens"}
     )
