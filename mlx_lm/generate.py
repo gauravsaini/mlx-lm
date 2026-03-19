@@ -3,6 +3,7 @@
 import argparse
 import contextlib
 import functools
+import importlib
 import json
 import sys
 import time
@@ -54,6 +55,15 @@ DEFAULT_QUANTIZED_KV_START = 5000
 
 def str2bool(string):
     return string.lower() not in ["false", "f"]
+
+
+def _optimized_generate_bridge():
+    try:
+        return importlib.import_module(".optimized_generate_bridge", __package__)
+    except ModuleNotFoundError as exc:
+        raise ModuleNotFoundError(
+            "use_mlx_nn_optimized=True requires mlx_lm.optimized_generate_bridge"
+        ) from exc
 
 
 def setup_arg_parser():
@@ -649,6 +659,7 @@ def stream_generate(
     prompt: Union[str, mx.array, List[int]],
     max_tokens: int = 256,
     draft_model: Optional[nn.Module] = None,
+    use_mlx_nn_optimized: bool = False,
     **kwargs,
 ) -> Generator[GenerationResponse, None, None]:
     """
@@ -671,6 +682,18 @@ def stream_generate(
         GenerationResponse: An instance containing the generated text segment and
             associated metadata. See :class:`GenerationResponse` for details.
     """
+    if use_mlx_nn_optimized:
+        bridge = _optimized_generate_bridge()
+        yield from bridge.optimized_stream_generate_bridge(
+            model=model,
+            tokenizer=tokenizer,
+            prompt=prompt,
+            max_tokens=max_tokens,
+            draft_model=draft_model,
+            **kwargs,
+        )
+        return
+
     if not isinstance(tokenizer, TokenizerWrapper):
         tokenizer = TokenizerWrapper(tokenizer)
 
@@ -747,6 +770,7 @@ def generate(
     tokenizer: Union[PreTrainedTokenizer, TokenizerWrapper],
     prompt: Union[str, List[int]],
     verbose: bool = False,
+    use_mlx_nn_optimized: bool = False,
     **kwargs,
 ) -> str:
     """
@@ -761,6 +785,16 @@ def generate(
        kwargs: The remaining options get passed to :func:`stream_generate`.
           See :func:`stream_generate` for more details.
     """
+    if use_mlx_nn_optimized:
+        bridge = _optimized_generate_bridge()
+        return bridge.optimized_generate_bridge(
+            model=model,
+            tokenizer=tokenizer,
+            prompt=prompt,
+            verbose=verbose,
+            **kwargs,
+        )
+
     if verbose:
         print("=" * 10)
 
