@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any, Dict, Generator, Optional
 
+import mlx.core as mx
+
 from .tokenizer_utils import TokenizerWrapper
 
 
@@ -84,6 +86,12 @@ def _normalize_tokenizer(tokenizer: Any) -> Any:
     return TokenizerWrapper(tokenizer)
 
 
+def _sync_generation_stream() -> None:
+    from .generate import generation_stream
+
+    mx.synchronize(generation_stream)
+
+
 def optimized_stream_generate_bridge(
     model: Any,
     tokenizer: Any,
@@ -101,6 +109,7 @@ def optimized_stream_generate_bridge(
         )
 
     tokenizer = _normalize_tokenizer(tokenizer)
+    _sync_generation_stream()
     _reject_unsupported_kwargs(kwargs)
     prompt_cache = kwargs.pop("prompt_cache", None)
     prefill_step_size = kwargs.pop("prefill_step_size", 2048)
@@ -146,6 +155,7 @@ def optimized_generate_bridge(
         )
 
     tokenizer = _normalize_tokenizer(tokenizer)
+    _sync_generation_stream()
     _reject_unsupported_kwargs(
         kwargs, allow_verbose=True, extra_supported={"max_tokens"}
     )
