@@ -6,6 +6,7 @@ import io
 import unittest
 
 import mlx.core as mx
+import mlx.nn as nn
 import pytest
 
 from mlx_lm import generate, stream_generate
@@ -32,7 +33,7 @@ class DummyTokenizer:
         return "".join(chr(ord("a") + int(token)) for token in tokens)
 
 
-class DummyModel:
+class DummyModel(nn.Module):
     def make_cache(self):
         return [type("DummyCache", (), {"state": mx.array([0])})()]
 
@@ -83,10 +84,6 @@ class TestGenerateOptimized(unittest.TestCase):
 
         self.assertEqual(text, "bc")
 
-    @pytest.mark.xfail(
-        reason="optimized mlx_lm generation path is not yet stable in the fork",
-        strict=False,
-    )
     def test_opt_in_stream_generate_contract(self):
         if not self._supports_optimized_kwarg():
             self.skipTest("optimized mlx_lm generation path is not implemented yet")
@@ -115,10 +112,6 @@ class TestGenerateOptimized(unittest.TestCase):
         self.assertTrue(all(total == 5 for _, total in events))
         self.assertTrue(all(processed <= 5 for processed, _ in events))
 
-    @pytest.mark.xfail(
-        reason="optimized mlx_lm generation path is not yet stable in the fork",
-        strict=False,
-    )
     def test_opt_in_generate_verbose_and_plain_tokenizer(self):
         if not self._supports_optimized_kwarg():
             self.skipTest("optimized mlx_lm generation path is not implemented yet")
@@ -136,9 +129,9 @@ class TestGenerateOptimized(unittest.TestCase):
             )
 
         output = stream.getvalue()
-        self.assertEqual(text, "bc")
+        self.assertEqual(text, "de")
         self.assertIn("==========", output)
-        self.assertIn("bc", output)
+        self.assertIn("de", output)
         self.assertIn("Prompt:", output)
         self.assertIn("Generation:", output)
         self.assertIn("Peak memory:", output)
@@ -182,10 +175,6 @@ class TestGenerateOptimized(unittest.TestCase):
                 use_mlx_nn_optimized=True,
             )
 
-    @pytest.mark.xfail(
-        reason="optimized mlx_lm generation path is not yet stable in the fork",
-        strict=False,
-    )
     def test_opt_in_tokenizer_without_detokenizer(self):
         if not self._supports_optimized_kwarg():
             self.skipTest("optimized mlx_lm generation path is not implemented yet")
@@ -220,7 +209,7 @@ class TestGenerateOptimized(unittest.TestCase):
             )
         )
 
-        self.assertEqual([r.text for r in responses[:-1]], ["b", "c"])
+        self.assertEqual([r.text for r in responses[:-1]], ["d", "e"])
         self.assertEqual(responses[-1].finish_reason, "length")
 
 

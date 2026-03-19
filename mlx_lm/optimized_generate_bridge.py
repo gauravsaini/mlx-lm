@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any, Dict, Generator, Optional
 
+from .tokenizer_utils import TokenizerWrapper
+
 
 _SUPPORTED_COMMON_KWARGS = {
     "prompt_cache",
@@ -76,6 +78,12 @@ def to_generation_response(response: Any) -> Any:
     )
 
 
+def _normalize_tokenizer(tokenizer: Any) -> Any:
+    if isinstance(tokenizer, TokenizerWrapper):
+        return tokenizer
+    return TokenizerWrapper(tokenizer)
+
+
 def optimized_stream_generate_bridge(
     model: Any,
     tokenizer: Any,
@@ -92,6 +100,7 @@ def optimized_stream_generate_bridge(
             "by the optimized mlx.nn generation path."
         )
 
+    tokenizer = _normalize_tokenizer(tokenizer)
     _reject_unsupported_kwargs(kwargs)
     prompt_cache = kwargs.pop("prompt_cache", None)
     prefill_step_size = kwargs.pop("prefill_step_size", 2048)
@@ -107,9 +116,9 @@ def optimized_stream_generate_bridge(
     import mlx.nn as nn
 
     for response in nn.optimized_stream_generate(
-        prompt,
         model,
         tokenizer,
+        prompt,
         prompt_cache=prompt_cache,
         max_tokens=max_tokens,
         prefill_step_size=prefill_step_size,
@@ -136,6 +145,7 @@ def optimized_generate_bridge(
             "optimized mlx.nn generation path."
         )
 
+    tokenizer = _normalize_tokenizer(tokenizer)
     _reject_unsupported_kwargs(
         kwargs, allow_verbose=True, extra_supported={"max_tokens"}
     )
@@ -155,9 +165,9 @@ def optimized_generate_bridge(
     import mlx.nn as nn
 
     return nn.optimized_generate(
-        prompt,
         model,
         tokenizer,
+        prompt,
         verbose=verbose,
         max_tokens=max_tokens,
         prompt_cache=prompt_cache,
