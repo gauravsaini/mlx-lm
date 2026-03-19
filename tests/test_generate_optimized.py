@@ -151,40 +151,45 @@ class TestGenerateOptimized(unittest.TestCase):
         if not self._supports_optimized_kwarg():
             self.skipTest("optimized mlx_lm generation path is not implemented yet")
 
-        with self.assertRaises(ValueError):
-            list(
-                stream_generate(
-                    self.model,
-                    self.tokenizer,
-                    [1, 2],
-                    max_tokens=2,
-                    sampler=lambda logprobs: mx.argmax(logprobs, axis=-1),
-                    draft_model=self.model,
-                    use_mlx_nn_optimized=True,
-                )
-            )
+        unsupported_kwargs = (
+            {"draft_model": self.model},
+            {"num_draft_tokens": 2},
+            {"input_embeddings": mx.array([1, 2])},
+            {"kv_bits": 4},
+            {"kv_group_size": 8},
+            {"quantized_kv_start": 1},
+            {"max_kv_size": 16},
+        )
 
-        with self.assertRaises(ValueError):
-            generate(
-                self.model,
-                self.tokenizer,
-                [1, 2],
-                max_tokens=2,
-                sampler=lambda logprobs: mx.argmax(logprobs, axis=-1),
-                num_draft_tokens=2,
-                use_mlx_nn_optimized=True,
-            )
+        for extra_kwargs in unsupported_kwargs:
+            with self.subTest(kwargs=extra_kwargs):
+                with self.assertRaises(ValueError):
+                    list(
+                        stream_generate(
+                            self.model,
+                            self.tokenizer,
+                            [1, 2],
+                            max_tokens=2,
+                            sampler=lambda logprobs: mx.argmax(
+                                logprobs, axis=-1
+                            ),
+                            use_mlx_nn_optimized=True,
+                            **extra_kwargs,
+                        )
+                    )
 
-        with self.assertRaises(ValueError):
-            generate(
-                self.model,
-                self.tokenizer,
-                [1, 2],
-                max_tokens=2,
-                sampler=lambda logprobs: mx.argmax(logprobs, axis=-1),
-                input_embeddings=mx.array([1, 2]),
-                use_mlx_nn_optimized=True,
-            )
+        for extra_kwargs in unsupported_kwargs:
+            with self.subTest(generate_kwargs=extra_kwargs):
+                with self.assertRaises(ValueError):
+                    generate(
+                        self.model,
+                        self.tokenizer,
+                        [1, 2],
+                        max_tokens=2,
+                        sampler=lambda logprobs: mx.argmax(logprobs, axis=-1),
+                        use_mlx_nn_optimized=True,
+                        **extra_kwargs,
+                    )
 
     def test_opt_in_tokenizer_without_detokenizer(self):
         if not self._supports_optimized_kwarg():
